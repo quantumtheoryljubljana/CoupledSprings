@@ -1,1 +1,176 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+<title>Tri vzmeti in dve masi</title>
+  <link rel="stylesheet" href="springs.css" />
+</head>
+<body>
+  <div class="app">
+    <h1>Tri vzmeti in dve enaki masi</h1>
 
+    
+<div class="grid">
+  <section class="panel">
+    <div class="panel-title">Animacija sistema in fazni diagram</div>
+    <canvas id="animationCanvas" width="670" height="613"></canvas>
+  </section>
+
+  <section class="panel panel-split">
+    <div class="panel-split-item">
+      <div class="panel-title" id="cmPanelTitle">Težišče in relativna koordinata v času</div>
+      <canvas id="cmCanvas" width="670" height="259"></canvas>
+    </div>
+    <div class="panel-split-item">
+      <div class="panel-title"><span class="math">x<sub>1</sub>(t), x<sub>2</sub>(t)</span></div>
+      <canvas id="timeCanvas" width="670" height="259"></canvas>
+    </div>
+  </section>
+
+  <section class="panel panel-split">
+    <div class="panel-split-item">
+      <div class="panel-title">Lastni frekvenci <span class="math">ω<sub>1</sub>, ω<sub>2</sub></span> v odvisnosti od srednje vzmeti <span class="math">k</span></div>
+      <canvas id="freqCanvas" width="670" height="259"></canvas>
+    </div>
+    <div class="panel-split-item">
+      <div class="panel-title">Komponente lastnih vektorjev v odvisnosti od srednje vzmeti <span class="math">k</span></div>
+      <canvas id="ratioCanvas" width="670" height="259"></canvas>
+    </div>
+  </section>
+
+  <section class="controls-panel">
+
+  <div class="preset-stack">
+  <div class="preset-line">
+    <div class="preset-group">
+      <span class="group-label">Prednastavitev vzmeti</span>
+      <button type="button" class="preset-btn" id="springPresetEqual"><span class="math">k<sub>1</sub> = k = k<sub>2</sub></span></button>
+      <button type="button" class="preset-btn" id="springPresetK1EqK2"><span class="math">k<sub>1</sub> = k<sub>2</sub></span></button>
+      <button type="button" class="preset-btn" id="springPresetK1EqK"><span class="math">k<sub>1</sub> = k</span></button>
+      <button type="button" class="preset-btn" id="springPresetK2EqK"><span class="math">k<sub>2</sub> = k</span></button>
+      <button type="button" class="preset-btn" id="springPresetCustom">Po meri</button>
+    </div>
+  </div>
+
+  <div class="preset-line">
+    <div class="preset-group">
+      <span class="group-label">Prednastavitev načina</span>
+      <button type="button" class="preset-btn" id="modePresetIn">Samo sofazno</button>
+      <button type="button" class="preset-btn" id="modePresetOut">Samo protifazno</button>
+      <button type="button" class="preset-btn" id="modePresetHalfHalf">50% sofazno + 50% protifazno</button>
+      <button type="button" class="preset-btn" id="modePresetCustom">Po meri</button>
+    </div>
+  </div>
+</div>
+
+
+
+  <div class="controls-rows">
+    <div class="controls-row">
+      <div class="row-label">Osnovno:</div>
+      <div class="row-grid row-grid-2">
+        <div class="control-wrap">
+          <label><span class="math">m</span><input id="m" type="range" min="0.05" max="4.0" step="0.05" value="1.0"><span id="mVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">L</span><input id="L" type="range" min="3.0" max="14.0" step="0.1" value="9.0"><span id="LVal"></span></label>
+        
+<div style="margin-top:6px;">
+  <label style="font-size:13px;">
+    
+<div class="controls-row">
+  <div class="row-label">trki onemogočeni</div>
+  <div>
+    <input type="checkbox" id="disableCollisions" checked>
+  </div>
+</div>
+
+  </label>
+</div>
+
+      </div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="row-label">Dolžine vzmeti</div>
+      <div class="row-grid row-grid-3">
+        <div class="control-wrap">
+          <label><span class="math">l<sub>1</sub></span><input id="l1left" type="range" min="0.10" max="5.0" step="0.05" value="2.0"><span id="l1leftVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">l</span><input id="lmid" type="range" min="0.10" max="5.0" step="0.05" value="2.5"><span id="lmidVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">l<sub>2</sub></span><input id="l2right" type="range" min="0.10" max="5.0" step="0.05" value="2.0"><span id="l2rightVal"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="row-label">Konstante vzmeti</div>
+      <div class="row-grid row-grid-3">
+        <div class="control-wrap">
+          <label><span class="math">k<sub>1</sub></span><input id="k1left" type="range" min="0.10" max="40.0" step="0.1" value="12.0"><span id="k1leftVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">k</span><input id="kmid" type="range" min="0.10" max="40.0" step="0.1" value="12.0"><span id="kmidVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">k<sub>2</sub></span><input id="k2right" type="range" min="0.10" max="40.0" step="0.1" value="12.0"><span id="k2rightVal"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="row-label">Načina in fazi</div>
+      <div class="row-grid row-grid-4">
+        <div class="control-wrap">
+          <label><span class="math">A<sub>sof</sub></span><input id="Ain" type="range" min="0.00" max="2.0" step="0.01" value="0.35"><span id="AinVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">A<sub>prot</sub></span><input id="Aout" type="range" min="0.00" max="2.0" step="0.01" value="0.00"><span id="AoutVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">φ<sub>sof</sub></span><input id="phiIn" type="range" min="0.00" max="6.283" step="0.01" value="0.00"><span id="phiInVal"></span></label>
+        </div>
+
+        <div class="control-wrap">
+          <label><span class="math">φ<sub>prot</sub></span><input id="phiOut" type="range" min="0.00" max="6.283" step="0.01" value="0.00"><span id="phiOutVal"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="button-row">
+    <button type="button" id="toggleBtn" class="action-btn">Zaženi</button>
+    <button type="button" id="resetBtn" class="action-btn">Ponastavi</button>
+  </div>
+
+  <div class="status-row">
+    <span id="statusText">Pripravljeno.</span>
+  </div>
+</section>
+</div>
+
+    
+  </div>
+
+  <script src="springs.js"></script>
+
+  
+  <div class="qt-footer">
+    <a href="https://quantum-theory.fmf.uni-lj.si/" target="_blank">
+       quantum-theory.fmf.uni-lj.si
+    </a>
+  </div>
+
+</body>
+</html>
