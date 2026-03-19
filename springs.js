@@ -636,8 +636,8 @@ function drawTimePlot(regime) {
 function updateCMTitle(regime) {
   if (!cmPanelTitle) return;
   cmPanelTitle.textContent = regime.equalSprings
-    ? "Težišče in relativna koordinata v času"
-    : "Normalni koordinati v času";
+    ? "Težišče in relativna koordinata (majhni odmiki od ravnovesne lege)"
+    : "Normalni koordinati (majhni odmiki od ravnovesne lege)";
 }
 
 function drawMorphLegendUniform(ctx, canvas, items, alpha, yStart = 26, options = {}) {
