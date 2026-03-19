@@ -149,6 +149,10 @@ function normalize(v) {
   return [v[0] / n, v[1] / n];
 }
 
+function isSymmetricSprings(k1, k, k2, eps = 1e-9) {
+  return Math.abs(k1 - k) < eps && Math.abs(k - k2) < eps;
+}
+
 function computeState(kMidOverride = null) {
   const L = num("L");
   const l1 = num("l1left");
@@ -233,37 +237,37 @@ function computeState(kMidOverride = null) {
 }
 
 function positionsAtTime(t, s) {
-  const A1 = s.Ain;
-  const A2 = s.Aout;
+  const qMinusRaw = s.Ain;
+  const qPlusRaw = s.Aout;
 
-  const theta1 = s.omega1 * t + s.phiIn;
-  const theta2 = s.omega2 * t + s.phiOut;
+  const thetaMinus = s.omega1 * t + s.phiIn;
+  const thetaPlus = s.omega2 * t + s.phiOut;
 
-  const c1 = A1 * Math.cos(theta1);
-  const c2 = A2 * Math.cos(theta2);
-  const dc1 = -A1 * s.omega1 * Math.sin(theta1);
-  const dc2 = -A2 * s.omega2 * Math.sin(theta2);
+  const cMinus = qMinusRaw * Math.cos(thetaMinus);
+  const cPlus = qPlusRaw * Math.cos(thetaPlus);
+  const dcMinus = -qMinusRaw * s.omega1 * Math.sin(thetaMinus);
+  const dcPlus = -qPlusRaw * s.omega2 * Math.sin(thetaPlus);
 
-  const u1 = c1 * s.v1[0] + c2 * s.v2[0];
-  const u2 = c1 * s.v1[1] + c2 * s.v2[1];
-  const v1 = dc1 * s.v1[0] + dc2 * s.v2[0];
-  const v2 = dc1 * s.v1[1] + dc2 * s.v2[1];
+  const u1 = cMinus * s.v1[0] + cPlus * s.v2[0];
+  const u2 = cMinus * s.v1[1] + cPlus * s.v2[1];
+  const v1 = dcMinus * s.v1[0] + dcPlus * s.v2[0];
+  const v2 = dcMinus * s.v1[1] + dcPlus * s.v2[1];
 
   const x1 = s.x1eq + u1;
   const x2 = s.x2eq + u2;
-  const xcm = 0.5 * (x1 + x2);
-  const rel = x2 - x1;
+  const xcmFluct = 0.5 * (u1 + u2);
+  const relFluct = u2 - u1;
 
-  const cmPart1 = 0.5 * c1 * (s.v1[0] + s.v1[1]);
-  const cmPart2 = 0.5 * c2 * (s.v2[0] + s.v2[1]);
-  const relPart1 = c1 * (s.v1[1] - s.v1[0]);
-  const relPart2 = c2 * (s.v2[1] - s.v2[0]);
+  const avgMinus = 0.5 * (s.v1[0] + s.v1[1]);
+  const diffPlus = (s.v2[1] - s.v2[0]);
+  const qMinus = Math.abs(avgMinus) > 1e-12 ? cMinus / avgMinus : cMinus;
+  const qPlus = Math.abs(diffPlus) > 1e-12 ? cPlus * diffPlus : cPlus;
 
-  const mode1InLike = s.v1[0] * s.v1[1] >= 0;
-  const inPhaseLike = s.xcmEq + (mode1InLike ? cmPart1 : cmPart2);
-  const outOfPhaseLike = s.relEq + (mode1InLike ? relPart2 : relPart1);
+  const lowerIsCM = isSymmetricSprings(s.k1, s.k, s.k2);
+  const plotRed = lowerIsCM ? xcmFluct : qMinus;
+  const plotBlue = lowerIsCM ? relFluct : qPlus;
 
-  return { x1, x2, v1, v2, xcm, rel, inPhaseLike, outOfPhaseLike };
+  return { x1, x2, v1, v2, xcmFluct, relFluct, qMinus, qPlus, plotRed, plotBlue };
 }
 
 function clearCanvas(ctx, canvas) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
@@ -303,6 +307,70 @@ function drawText(ctx, txt, x, y, color = TEXT, align = "left") {
   ctx.fillText(txt, x, y);
 }
 
+function drawRichText(ctx, text, x, y, color = TEXT, align = "left") {
+  const match = String(text).match(/^(.*?)_\{([^}]+)\}(.*)$/);
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+
+  if (!match) {
+    ctx.fillText(text, x, y);
+    const w = ctx.measureText(text).width;
+    ctx.restore();
+    return w;
+  }
+
+  const [, base, sub, rest] = match;
+  const baseFont = ctx.font;
+  const fontMatch = baseFont.match(/^(.*?)(\d+(?:\.\d+)?)px(.*)$/);
+  const subFont = fontMatch
+    ? `${fontMatch[1]}${(parseFloat(fontMatch[2]) * 0.72).toFixed(2)}px${fontMatch[3]}`
+    : baseFont;
+
+  ctx.font = baseFont;
+  const baseW = ctx.measureText(base).width;
+  ctx.font = subFont;
+  const subW = ctx.measureText(sub).width;
+  ctx.font = baseFont;
+  const restW = ctx.measureText(rest).width;
+  const totalW = baseW + subW + restW;
+
+  let startX = x;
+  if (align === "center") startX = x - totalW / 2;
+  else if (align === "right") startX = x - totalW;
+
+  ctx.font = baseFont;
+  ctx.fillText(base, startX, y);
+  ctx.font = subFont;
+  ctx.fillText(sub, startX + baseW, y + 5);
+  ctx.font = baseFont;
+  ctx.fillText(rest, startX + baseW + subW, y);
+  ctx.restore();
+  return totalW;
+}
+
+function measureRichText(ctx, text) {
+  const match = String(text).match(/^(.*?)_\{([^}]+)\}(.*)$/);
+  if (!match) return ctx.measureText(text).width;
+
+  const [, base, sub, rest] = match;
+  const baseFont = ctx.font;
+  const fontMatch = baseFont.match(/^(.*?)(\d+(?:\.\d+)?)px(.*)$/);
+  const subFont = fontMatch
+    ? `${fontMatch[1]}${(parseFloat(fontMatch[2]) * 0.72).toFixed(2)}px${fontMatch[3]}`
+    : baseFont;
+
+  ctx.save();
+  ctx.font = baseFont;
+  const baseW = ctx.measureText(base).width;
+  ctx.font = subFont;
+  const subW = ctx.measureText(sub).width;
+  ctx.font = baseFont;
+  const restW = ctx.measureText(rest).width;
+  ctx.restore();
+  return baseW + subW + restW;
+}
+
 function drawLegendUniform(ctx, canvas, items, yStart = 26, options = {}) {
   const maxPerRow = options.maxPerRow || 2;
   const left = options.left || 40;
@@ -324,7 +392,7 @@ function drawLegendUniform(ctx, canvas, items, yStart = 26, options = {}) {
       const x0 = cx - (lineLen / 2) - 16;
       const x1 = x0 + lineLen;
       drawLine(ctx, x0, y, x1, y, item.color, item.width || 2.5, !!item.dashed);
-      drawText(ctx, item.label, x1 + textOffset, y + 5, item.color, "left");
+      drawRichText(ctx, item.label, x1 + textOffset, y + 5, item.color, "left");
     });
   });
 }
@@ -567,17 +635,9 @@ function drawTimePlot(regime) {
 
 function updateCMTitle(regime) {
   if (!cmPanelTitle) return;
-  if (!cmPanelTitle.dataset.ready) {
-    cmPanelTitle.innerHTML =
-      '<span class="cm-title-layer cm-title-old">Težišče in relativna koordinata v času</span>' +
-      '<span class="cm-title-layer cm-title-new">Sofazni in protifazni del v času</span>';
-    cmPanelTitle.dataset.ready = "1";
-  }
-  const oldLayer = cmPanelTitle.querySelector(".cm-title-old");
-  const newLayer = cmPanelTitle.querySelector(".cm-title-new");
-  if (!oldLayer || !newLayer) return;
-  oldLayer.style.opacity = String(1 - regime.cmMorph);
-  newLayer.style.opacity = String(regime.cmMorph);
+  cmPanelTitle.textContent = regime.equalSprings
+    ? "Težišče in relativna koordinata v času"
+    : "Normalni koordinati v času";
 }
 
 function drawMorphLegendUniform(ctx, canvas, items, alpha, yStart = 26, options = {}) {
@@ -587,6 +647,7 @@ function drawMorphLegendUniform(ctx, canvas, items, alpha, yStart = 26, options 
   const lineLen = options.lineLen || 34;
   const textOffset = options.textOffset || 10;
   const rowGap = options.rowGap || (BASE_FONT + 18);
+  const arrowGap = options.arrowGap || 10;
 
   const rows = [];
   for (let i = 0; i < items.length; i += maxPerRow) {
@@ -601,8 +662,18 @@ function drawMorphLegendUniform(ctx, canvas, items, alpha, yStart = 26, options 
       const x0 = cx - (lineLen / 2) - 16;
       const x1 = x0 + lineLen;
       drawLine(ctx, x0, y, x1, y, item.color, item.width || 2.5, !!item.dashed);
-      drawText(ctx, item.oldLabel, x1 + textOffset, y + 5, colorWithAlpha(item.color, 1 - alpha), "left");
-      drawText(ctx, item.newLabel, x1 + textOffset, y + 5, colorWithAlpha(item.color, alpha), "left");
+
+      const labelX = x1 + textOffset;
+      if (alpha <= 0.001) {
+        drawRichText(ctx, item.oldLabel, labelX, y + 5, item.color, "left");
+      } else if (alpha >= 0.999) {
+        drawRichText(ctx, item.newLabel, labelX, y + 5, item.color, "left");
+      } else {
+        const oldW = measureRichText(ctx, item.oldLabel);
+        drawRichText(ctx, item.oldLabel, labelX, y + 5, colorWithAlpha(item.color, 1 - alpha), "left");
+        drawText(ctx, "→", labelX + oldW + arrowGap, y + 5, colorWithAlpha(item.color, alpha), "left");
+        drawRichText(ctx, item.newLabel, labelX + oldW + arrowGap + ctx.measureText("→").width + arrowGap, y + 5, colorWithAlpha(item.color, alpha), "left");
+      }
     });
   });
 }
@@ -611,19 +682,16 @@ function drawCMPlot(regime) {
   if (history.length < 2) return;
   const latestT = history[history.length - 1].t;
   const earliestT = Math.max(0, latestT - historyWindow);
-  const data = history.filter(p => p.t >= earliestT);
-
-  const alpha = regime.cmMorph;
-  const plotData = data.map(p => ({
+  const plotData = history.filter(p => p.t >= earliestT).map(p => ({
     t: p.t,
-    y1: (1 - alpha) * p.xcm + alpha * p.inPhaseLike,
-    y2: (1 - alpha) * p.rel + alpha * p.outOfPhaseLike
+    yRed: p.plotRed,
+    yBlue: p.plotBlue
   }));
 
   let yMin = Infinity, yMax = -Infinity;
   for (const p of plotData) {
-    yMin = Math.min(yMin, p.y1, p.y2);
-    yMax = Math.max(yMax, p.y1, p.y2);
+    yMin = Math.min(yMin, p.yRed, p.yBlue);
+    yMax = Math.max(yMax, p.yRed, p.yBlue);
   }
   const pad = Math.max(0.05, 0.12 * (yMax - yMin || 1));
   yMin -= pad;
@@ -631,14 +699,21 @@ function drawCMPlot(regime) {
 
   updateCMTitle(regime);
 
-  const axes = drawAxes(cmctx, cmCanvas, earliestT, latestT || 1, yMin, yMax, "t (s)", "x (m)");
-  drawSeries(cmctx, plotData, p => axes.mapX(p.t), p => axes.mapY(p.y1), RED, 2.6, false);
-  drawSeries(cmctx, plotData, p => axes.mapX(p.t), p => axes.mapY(p.y2), BLUE, 2.6, false);
+  const axes = drawAxes(cmctx, cmCanvas, earliestT, latestT || 1, yMin, yMax, "t (s)", "δx (m)");
+  drawSeries(cmctx, plotData, p => axes.mapX(p.t), p => axes.mapY(p.yRed), RED, 2.6, false);
+  drawSeries(cmctx, plotData, p => axes.mapX(p.t), p => axes.mapY(p.yBlue), BLUE, 2.6, false);
 
-  drawMorphLegendUniform(cmctx, cmCanvas, [
-    { oldLabel: "R_cm(t)", newLabel: "s_in(t)", color: RED, dashed: false, width: 2.2 },
-    { oldLabel: "r(t)", newLabel: "s_out(t)", color: BLUE, dashed: false, width: 2.2 }
-  ], alpha, 28);
+  drawLegendUniform(cmctx, cmCanvas, regime.equalSprings
+    ? [
+        { label: "x_{cm}(t)",  color: RED,  dashed: false, width: 2.2 },
+        { label: "x_{rel}(t)", color: BLUE, dashed: false, width: 2.2 }
+      ]
+    : [
+        { label: "q_{−}(t)", color: RED,  dashed: false, width: 2.2 },
+        { label: "q_{+}(t)", color: BLUE, dashed: false, width: 2.2 }
+      ],
+    28
+  );
 }
 
 function drawPhasePlot(regime) {
@@ -679,15 +754,15 @@ function drawFrequencyPlot(regime) {
   }
   const axes = drawAxes(fctx, freqCanvas, kMin, kMax, 0, yMax * 1.08 || 1, " k (N/m)", "ω (rad/s)");
   for (let i = 1; i < pts1.length; i++) {
-    drawLine(fctx, axes.mapX(pts1[i - 1][0]), axes.mapY(pts1[i - 1][1]), axes.mapX(pts1[i][0]), axes.mapY(pts1[i][1]), BLUE, 2.2);
-    drawLine(fctx, axes.mapX(pts2[i - 1][0]), axes.mapY(pts2[i - 1][1]), axes.mapX(pts2[i][0]), axes.mapY(pts2[i][1]), RED, 2.2);
+    drawLine(fctx, axes.mapX(pts1[i - 1][0]), axes.mapY(pts1[i - 1][1]), axes.mapX(pts1[i][0]), axes.mapY(pts1[i][1]), RED, 2.2);
+    drawLine(fctx, axes.mapX(pts2[i - 1][0]), axes.mapY(pts2[i - 1][1]), axes.mapX(pts2[i][0]), axes.mapY(pts2[i][1]), BLUE, 2.2);
   }
   const current = computeState(), currentK = num("kmid");
-  fctx.fillStyle = BLUE; fctx.beginPath(); fctx.arc(axes.mapX(currentK), axes.mapY(current.omega1), 4, 0, 2*Math.PI); fctx.fill();
-  fctx.fillStyle = RED; fctx.beginPath(); fctx.arc(axes.mapX(currentK), axes.mapY(current.omega2), 4, 0, 2*Math.PI); fctx.fill();
+  fctx.fillStyle = RED; fctx.beginPath(); fctx.arc(axes.mapX(currentK), axes.mapY(current.omega1), 4, 0, 2*Math.PI); fctx.fill();
+  fctx.fillStyle = BLUE; fctx.beginPath(); fctx.arc(axes.mapX(currentK), axes.mapY(current.omega2), 4, 0, 2*Math.PI); fctx.fill();
   drawLegendUniform(fctx, freqCanvas, [
-    { label: `ω₁ = ${current.omega1.toFixed(3)} rad/s`, color: BLUE, dashed: false, width: 2.4 },
-    { label: `ω₂ = ${current.omega2.toFixed(3)} rad/s`, color: RED, dashed: false, width: 2.4 }
+    { label: `ω_{−} = ${current.omega1.toFixed(3)} rad/s`, color: RED, dashed: false, width: 2.4 },
+    { label: `ω_{+} = ${current.omega2.toFixed(3)} rad/s`, color: BLUE, dashed: false, width: 2.4 }
   ], 22, { left: -28 });
 }
 
@@ -707,15 +782,15 @@ function drawRatioPlot() {
     // Physical amplitude components:
     // lower-frequency / "f" mode scales with Ain
     // upper-frequency / "p" mode scales with Aout
-    const yBlueSolid = Ain * s.v1[0];
-    const yBlueDashed = Ain * s.v1[1];
-    const yRedSolid = Aout * s.v2[0];
-    const yRedDashed = Aout * s.v2[1];
+    const yRedSolid = Ain * s.v1[0];
+    const yRedDashed = Ain * s.v1[1];
+    const yBlueSolid = Aout * s.v2[0];
+    const yBlueDashed = Aout * s.v2[1];
 
-    blueSolid.push([kv, yBlueSolid]);
-    blueDashed.push([kv, yBlueDashed]);
     redSolid.push([kv, yRedSolid]);
     redDashed.push([kv, yRedDashed]);
+    blueSolid.push([kv, yBlueSolid]);
+    blueDashed.push([kv, yBlueDashed]);
 
     ymax = Math.max(
       ymax,
@@ -734,8 +809,8 @@ function drawRatioPlot() {
     kMax,
     -ymax,
     ymax,
-    " k (N/m)",
-    " (m)"
+    "k (N/m)",
+    "amplituda (m)"
   );
 
   function plotSeries(pts, color, dashed, width) {
@@ -762,10 +837,10 @@ function drawRatioPlot() {
   const s = computeState();
 
   const marks = [
-    [Aout * s.v2[0], RED],
-    [Aout * s.v2[1], RED],
-    [Ain * s.v1[0], BLUE],
-    [Ain * s.v1[1], BLUE]
+    [Ain * s.v1[0], RED],
+    [Ain * s.v1[1], RED],
+    [Aout * s.v2[0], BLUE],
+    [Aout * s.v2[1], BLUE]
   ];
   marks.forEach(([y, c]) => {
     rctx.fillStyle = c;
@@ -774,12 +849,12 @@ function drawRatioPlot() {
     rctx.fill();
   });
 
-    drawLegendUniform(rctx, ratioCanvas, [
-    { label: "s1p", color: RED, dashed: false, width: 3.0 },
-    { label: "s2p", color: RED, dashed: true, width: 3.0 },
-    { label: "s1f", color: BLUE, dashed: false, width: 3.0 },
-    { label: "s2f", color: BLUE, dashed: true, width: 3.0 }
-  ], 28, { maxPerRow: 4, left: 10, right: ratioCanvas.width - 10, lineLen: 22, textOffset: 6 });
+drawLegendUniform(rctx, ratioCanvas, [
+  { label: "s_{1-}", color: RED, dashed: false, width: 3.0 },
+  { label: "s_{2-}", color: RED, dashed: true,  width: 3.0 },
+  { label: "s_{1+}", color: BLUE, dashed: false, width: 3.0 },
+  { label: "s_{2+}", color: BLUE, dashed: true,  width: 3.0 }
+], 28, { maxPerRow: 4, left: 10, right: ratioCanvas.width - 10, lineLen: 22, textOffset: 6 });
 }
 
 
@@ -799,17 +874,10 @@ function updatePresetStates() {
 
   const onlyIn = num("Ain") > 1e-9 && Math.abs(num("Aout")) < 1e-9;
   const onlyOut = num("Aout") > 1e-9 && Math.abs(num("Ain")) < 1e-9;
-  const halfHalf =
-    num("Ain") > 1e-9 &&
-    num("Aout") > 1e-9 &&
-    Math.abs(num("Ain") - num("Aout")) < 1e-9 &&
-    Math.abs(num("phiIn")) < 1e-9 &&
-    Math.abs(num("phiOut")) < 1e-9;
-
   modePresetIn.classList.toggle("active", onlyIn);
   modePresetOut.classList.toggle("active", onlyOut);
-  modePresetHalfHalf.classList.toggle("active", halfHalf);
-  modePresetCustom.classList.toggle("active", !(onlyIn || onlyOut || halfHalf));
+  if (modePresetHalfHalf) modePresetHalfHalf.classList.toggle("active", false);
+  modePresetCustom.classList.toggle("active", !(onlyIn || onlyOut));
 }
 
 
@@ -1045,7 +1113,7 @@ function resetHistory() {
   const s = computeState();
   for (let i = 0; i < 2; i++) {
     const p = positionsAtTime(simTime, s);
-    history.push({ t: simTime + i * 1e-6, x1: p.x1, x2: p.x2, v1: p.v1, v2: p.v2, xcm: p.xcm, rel: p.rel, inPhaseLike: p.inPhaseLike, outOfPhaseLike: p.outOfPhaseLike });
+    history.push({ t: simTime + i * 1e-6, x1: p.x1, x2: p.x2, v1: p.v1, v2: p.v2, xcmFluct: p.xcmFluct, relFluct: p.relFluct, qMinus: p.qMinus, qPlus: p.qPlus, plotRed: p.plotRed, plotBlue: p.plotBlue });
   }
 }
 
@@ -1059,7 +1127,7 @@ function animationFrame(timestamp) {
     simTime += dt * playbackSpeed;
     const s = computeState();
     const p = positionsAtTime(simTime, s);
-    history.push({ t: simTime, x1: p.x1, x2: p.x2, v1: p.v1, v2: p.v2, xcm: p.xcm, rel: p.rel, inPhaseLike: p.inPhaseLike, outOfPhaseLike: p.outOfPhaseLike });
+    history.push({ t: simTime, x1: p.x1, x2: p.x2, v1: p.v1, v2: p.v2, xcmFluct: p.xcmFluct, relFluct: p.relFluct, qMinus: p.qMinus, qPlus: p.qPlus, plotRed: p.plotRed, plotBlue: p.plotBlue });
     while (history.length > 3 && history[0].t < simTime - historyWindow - 0.5) history.shift();
   }
 
@@ -1160,7 +1228,7 @@ springPresetK2EqK.addEventListener("click", setSpringPresetK2EqK);
 springPresetCustom.addEventListener("click", setSpringPresetCustom);
 modePresetIn.addEventListener("click", setModePresetOnlyIn);
 modePresetOut.addEventListener("click", setModePresetOnlyOut);
-modePresetHalfHalf.addEventListener("click", setModePresetHalfHalf);
+if (modePresetHalfHalf) modePresetHalfHalf.addEventListener("click", setModePresetHalfHalf);
 modePresetCustom.addEventListener("click", setModePresetCustom);
 
 Object.values(controls).forEach(el => {

@@ -52,23 +52,25 @@ h1 {
   display: grid;
   grid-template-columns: 694px 694px 694px;
   gap: 32px;
-  align-items: start;
+  align-items: stretch;
   margin-bottom: 20px;
 }
 
 .grid > .panel:nth-of-type(1) { grid-column: 1; grid-row: 1; }
 .grid > .panel:nth-of-type(2) { grid-column: 2; grid-row: 1; }
-.grid > .panel:nth-of-type(3) { grid-column: 3; grid-row: 1; }
+.grid > .panel:nth-of-type(3) { grid-column: 3; grid-row: 1 / span 2; }
 .grid > .controls-panel {
   width: 100%;
   min-height: 0;
+  height: 100%;
   padding: 2px 0 0 0;
   background: transparent;
   overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  grid-column: 1 / span 3;
+  grid-column: 1 / span 2;
+  grid-row: 2;
 }
 
 .panel,
@@ -100,6 +102,10 @@ h1 {
   align-self: start;
 }
 
+.panel-split-tall {
+  grid-template-rows: 441px 441px;
+}
+
 .panel-split-item {
   display: grid;
   grid-template-rows: 22px 1fr;
@@ -111,13 +117,15 @@ h1 {
 .controls-panel {
   width: 100%;
   min-height: 0;
+  height: 100%;
   padding: 2px 0 0 0;
   background: transparent;
   overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  grid-column: 1 / span 3;
+  grid-column: 1 / span 2;
+  grid-row: 2;
 }
 
 .panel-title,
@@ -146,11 +154,15 @@ canvas {
 }
 
 #cmCanvas,
-#timeCanvas,
+#timeCanvas {
+  width: 670px;
+  height: 259px;
+}
+
 #freqCanvas,
 #ratioCanvas {
   width: 670px;
-  height: 259px;
+  height: 400px;
 }
 
 /* controls */
@@ -478,4 +490,21 @@ input[type="range"] {
 
 .collision-label input {
   margin: 0;
+}
+
+
+/* align action buttons with bottom edge of tall right plots */
+.controls-panel .status-row {
+  order: 2;
+}
+
+.controls-panel .button-row {
+  order: 3;
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+
+.condition-label {
+  font-weight: 400;
 }
